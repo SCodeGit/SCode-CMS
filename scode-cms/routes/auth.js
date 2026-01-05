@@ -1,84 +1,45 @@
- const express = require("express");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-
+const express = require("express");
 const router = express.Router();
+const User = require("../models/User");
+const jwt = require("jsonwebtoken");
 
-/* =========================
-   REGISTER
-========================= */
-router.post("/register", async (req, res) => {
+// MANUAL client creation (by admin)
+router.post("/create-client", async (req, res) => {
   try {
     const { username, email, password, role, siteCode } = req.body;
 
-    if (!siteCode) {
-      return res.status(400).json({ error: "Site code required" });
-    }
+    // Optional: check if admin
+    // if(req.user.role !== "admin") return res.status(403).json({error: "Forbidden"});
 
-    const exists = await User.findOne({ email });
-    if (exists) {
-      return res.status(400).json({ error: "Email already exists" });
-    }
-
-    const user = new User({
-      username,
-      email,
-      password,
-      role,
-      siteCode
-    });
-
+    const user = new User({ username, email, password, role, siteCode });
     await user.save();
 
     res.status(201).json({
-      message: "User registered",
-      user: {
-        email: user.email,
-        role: user.role,
-        siteCode: user.siteCode
-      }
+      message: "Client created",
+      user: { id: user._id, username, email, role, siteCode }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
-/* =========================
-   LOGIN
-========================= */
+// LOGIN
 router.post("/login", async (req, res) => {
   try {
-    const { email, password, siteCode } = req.body;
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const user = await User.findOne({ email, siteCode });
-    if (!user) {
-      return res.status(401).json({ error: "Invalid credentials or site code" });
-    }
-
-    const match = await user.comparePassword(password);
-    if (!match) {
-      return res.status(401).json({ error: "Invalid password" });
-    }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) return res.status(401).json({ error: "Invalid password" });
 
     const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-        siteCode: user.siteCode
-      },
-      process.env.JWT_SECRET,
+      { id: user._id, role: user.role, siteCode: user.siteCode },
+      process.env.JWT_SECRET || "secretkey",
       { expiresIn: "1d" }
     );
 
-    res.json({
-      message: "Login successful",
-      token,
-      user: {
-        email: user.email,
-        role: user.role,
-        siteCode: user.siteCode
-      }
-    });
+    res.json({ message: "Login successful", token, siteCode: user.siteCode });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
