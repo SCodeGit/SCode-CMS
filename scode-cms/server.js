@@ -6,24 +6,24 @@ const cors = require("cors");
 const helmet = require("helmet");
 const multer = require("multer");
 const path = require("path");
+const jwt = require("jsonwebtoken");
 
+// Models
+const User = require("./models/User");
 const Post = require("./models/Post");
 
-// 🔐 Routes
+// Routes (auth)
 const authRoutes = require("./routes/auth");
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Create app
+// Express app
 const app = express();
 
 // ===== MIDDLEWARE =====
 app.use(bodyParser.json());
-app.use(cors({
-  origin: "*",
-  credentials: true
-}));
+app.use(cors({ origin: "*", credentials: true }));
 app.use(helmet());
 
 // ===== STATIC FILES =====
@@ -48,30 +48,27 @@ mongoose.connect(MONGO_URI)
 app.use("/api/auth", authRoutes);
 
 // ===== AUTH MIDDLEWARE =====
-const jwt = require("jsonwebtoken");
-
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "No token" });
+  if (!token) return res.status(401).json({ error: "No token provided" });
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, process.env.JWT_SECRET || "secretkey");
     next();
-  } catch {
+  } catch (err) {
     res.status(401).json({ error: "Invalid token" });
   }
 };
 
+// ===== ROLE PERMISSION =====
 const permit = (...roles) => (req, res, next) => {
-  if (!roles.includes(req.user.role)) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
+  if (!roles.includes(req.user.role)) return res.status(403).json({ error: "Forbidden" });
   next();
 };
 
 // ===== POSTS =====
 
-// Create post
+// Create post (locked to user's siteCode)
 app.post(
   "/api/posts",
   auth,
@@ -82,6 +79,7 @@ app.post(
       const post = new Post({
         ...req.body,
         author: req.user.id,
+        siteCode: req.user.siteCode, // 🔑 lock to client site
         file: req.file ? `/uploads/${req.file.filename}` : null
       });
       await post.save();
@@ -92,22 +90,51 @@ app.post(
   }
 );
 
-// Read all
+// Read all posts (only posts for user's site)
 app.get("/api/posts", auth, async (req, res) => {
-  const posts = await Post.find().populate("author", "email role");
-  res.json(posts);
+  try {
+    const posts = await Post.find({ siteCode: req.user.siteCode }).populate("author", "email role siteCode");
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Update
+// Read single post (locked to site)
+app.get("/api/posts/:id", auth, async (req, res) => {
+  try {
+    const post = await Post.findOne({ _id: req.params.id, siteCode: req.user.siteCode });
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update post
 app.put("/api/posts/:id", auth, permit("admin","editor"), async (req, res) => {
-  const post = await Post.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(post);
+  try {
+    const post = await Post.findOneAndUpdate(
+      { _id: req.params.id, siteCode: req.user.siteCode },
+      req.body,
+      { new: true }
+    );
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.json(post);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-// Delete
+// Delete post
 app.delete("/api/posts/:id", auth, permit("admin","editor"), async (req, res) => {
-  await Post.findByIdAndDelete(req.params.id);
-  res.json({ message: "Deleted" });
+  try {
+    const post = await Post.findOneAndDelete({ _id: req.params.id, siteCode: req.user.siteCode });
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.json({ message: "Post deleted", post });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ===== START SERVER =====
