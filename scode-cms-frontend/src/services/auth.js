@@ -1,6 +1,5 @@
 // src/services/auth.js
-import { API_BASE_URL } from "../config";
-
+import { API_BASE_URL } from "../config.js";
 export async function login(email, password) {
   const res = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -24,3 +23,4 @@ export function logout() {
 export function isLoggedIn() {
   return !!localStorage.getItem("token");
 }
+
