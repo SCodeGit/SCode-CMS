@@ -1,26 +1,33 @@
 // src/services/auth.js
 import { API_BASE_URL } from "../config.js";
+
 export async function login(email, password) {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+  const res = await fetch(`${API_BASE_URL}/api/auth/login`, { // added /api for backend route
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Login failed");
 
+  if (!res.ok) {
+    // throw the backend error message if present
+    throw new Error(data.error || "Login failed");
+  }
+
+  // store token and siteCode for auth
   localStorage.setItem("token", data.token);
   localStorage.setItem("siteCode", data.siteCode);
+
   return data;
 }
 
 export function logout() {
-  localStorage.clear();
+  localStorage.removeItem("token");
+  localStorage.removeItem("siteCode");
   window.location.href = "/login";
 }
 
 export function isLoggedIn() {
   return !!localStorage.getItem("token");
 }
-
