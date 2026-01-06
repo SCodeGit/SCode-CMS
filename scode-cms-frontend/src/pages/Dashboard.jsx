@@ -1,51 +1,35 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useState, useContext } from "react";
-import { getPosts } from "../api/api";
-import { AuthContext } from "../context/AuthContext";
-import PostCard from "../components/PostCard";
+import { useEffect, useState } from "react";
+import { api } from "../services/api";
+import { logout } from "../services/auth";
 
-const Dashboard = () => {
-  const { token } = useContext(AuthContext);
+export default function Dashboard() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getPosts(token);
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setPosts(data);
-        }
-      } catch (err) {
-        setError("Failed to fetch posts.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPosts();
-  }, [token]);
-
-  if (loading) return <p>Loading posts...</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+    api("/posts")
+      .then(setPosts)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <div className="dashboard-page">
-      <h2>Dashboard</h2>
-      <div className="posts-grid">
-        {posts.length === 0 ? (
-          <p>No posts available.</p>
-        ) : (
-          posts.map((post) => <PostCard key={post._id} post={post} />)
-        )}
-      </div>
+    <div>
+      <h2>My Site Content</h2>
+      <button onClick={logout}>Logout</button>
+
+      {loading && <p>Loading...</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {!loading && posts.length === 0 && <p>No posts yet.</p>}
+
+      {posts.map(p => (
+        <div key={p._id}>
+          <h3>{p.title}</h3>
+          <p>{p.content}</p>
+        </div>
+      ))}
     </div>
   );
-};
-
-export default Dashboard;
+}
