@@ -1,6 +1,6 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useState } from "react";
-import { api } from "../services/api";
+import { getPosts } from "../api/api";   // ✅ use the actual export
 import { logout } from "../services/auth";
 
 export default function Dashboard() {
@@ -9,7 +9,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api("/posts")
+    getPosts(localStorage.getItem("token"))
       .then(setPosts)
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
