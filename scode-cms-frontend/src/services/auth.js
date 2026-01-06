@@ -2,7 +2,7 @@
 import { API_BASE_URL } from "../config.js";
 
 export async function login(email, password) {
-  const res = await fetch(`${API_BASE_URL}/api/auth/login`, { // added /api for backend route
+  const res = await fetch(`${API_BASE_URL}/auth/login`, { // remove extra /api
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -11,7 +11,6 @@ export async function login(email, password) {
   const data = await res.json();
 
   if (!res.ok) {
-    // throw the backend error message if present
     throw new Error(data.error || "Login failed");
   }
 
