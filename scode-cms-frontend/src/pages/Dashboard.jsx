@@ -1,7 +1,14 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useState } from "react";
 import { getPosts } from "../api/api";
+import { API_BASE_URL } from "../config.js";
 import { logout } from "../services/auth";
+
+const getFileUrl = (file) => {
+  if (/^https?:\/\//i.test(file)) return file;
+  const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+  return new URL(file, `${apiOrigin}/`).toString();
+};
 
 export default function Dashboard() {
   const [posts, setPosts] = useState([]);
@@ -38,7 +45,7 @@ export default function Dashboard() {
             <h3>{p.title}</h3>
             <p>{p.content}</p>
             {p.file && (
-              <a href={p.file} target="_blank" rel="noopener noreferrer">
+              <a href={getFileUrl(p.file)} target="_blank" rel="noopener noreferrer">
                 Download attachment
               </a>
             )}

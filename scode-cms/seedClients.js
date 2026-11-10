@@ -3,8 +3,13 @@ const mongoose = require("mongoose");
 const User = require("./models/User");
 
 const MONGO_URI = process.env.MONGO_URI;
+const { ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_SITE_CODE } = process.env;
 
 async function connectDB() {
+  if (!MONGO_URI) {
+    throw new Error("MONGO_URI must be set");
+  }
+
   try {
     await mongoose.connect(MONGO_URI);
     console.log("✅ MongoDB connected");
@@ -14,55 +19,44 @@ async function connectDB() {
   }
 }
 
-async function seedClients() {
-  const clients = [
-    {
-      username: "SCode",
-      email: "kimbon226@gmail.com",
-      password: "SCode1",
-      role: "admin",
-      siteCode: "SCode01",
-    },
-    {
-      username: "Client2",
-      email: "client2@example.com",
-      password: "TempPass234",
-      role: "client",
-      siteCode: "scode203",
-    },
-    {
-      username: "Client3",
-      email: "client3@example.com",
-      password: "TempPass345",
-      role: "client",
-      siteCode: "scode204",
-    },
-    {
-      username: "Client4",
-      email: "client4@example.com",
-      password: "TempPass456",
-      role: "client",
-      siteCode: "scode205",
-    },
-  ];
-
-  for (let c of clients) {
-    const exists = await User.findOne({ email: c.email });
-    if (!exists) {
-      const user = new User(c);
-      await user.save();
-      console.log(`✅ Created ${c.username} (${c.email})`);
-    } else {
-      console.log(`⚠️ ${c.email} already exists, skipping`);
-    }
+async function seedAdmin() {
+  if (!ADMIN_USERNAME || !ADMIN_EMAIL || !ADMIN_PASSWORD || !ADMIN_SITE_CODE) {
+    throw new Error(
+      "ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD, and ADMIN_SITE_CODE must be set"
+    );
   }
+
+  if (ADMIN_PASSWORD.length < 12) {
+    throw new Error("ADMIN_PASSWORD must be at least 12 characters");
+  }
+
+  const email = ADMIN_EMAIL.trim().toLowerCase();
+  const exists = await User.findOne({ email });
+  if (exists) {
+    throw new Error(`An account with ${email} already exists`);
+  }
+
+  const admin = new User({
+    username: ADMIN_USERNAME.trim(),
+    email,
+    password: ADMIN_PASSWORD,
+    role: "admin",
+    siteCode: ADMIN_SITE_CODE.trim()
+  });
+  await admin.save();
+  console.log(`✅ Created administrator account for ${email}`);
 }
 
 async function main() {
   await connectDB();
-  await seedClients();
-  await mongoose.disconnect();
-  console.log("🎉 Seeding complete!");
+  try {
+    await seedAdmin();
+  } finally {
+    await mongoose.disconnect();
+  }
 }
 
-main();
+main().catch(err => {
+  console.error("❌ Administrator setup failed:", err.message);
+  process.exitCode = 1;
+});

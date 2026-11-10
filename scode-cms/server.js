@@ -12,6 +12,10 @@ const postsRoutes = require("./routes/posts");
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
+const FRONTEND_URLS = (process.env.FRONTEND_URL || "")
+  .split(",")
+  .map(url => url.trim())
+  .filter(Boolean);
 
 if (!JWT_SECRET) {
   throw new Error("❌ JWT_SECRET is not defined in environment variables");
@@ -22,7 +26,12 @@ if (!MONGO_URI) {
 }
 
 const app = express();
-const uploadDir = path.join(__dirname, "uploads");
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, "uploads");
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  ...FRONTEND_URLS
+];
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -30,11 +39,7 @@ if (!fs.existsSync(uploadDir)) {
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "https://scode-cms-frontend-hrs3.onrender.com"
-    ],
+    origin: allowedOrigins,
     credentials: true
   })
 );
